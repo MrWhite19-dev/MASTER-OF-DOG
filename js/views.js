@@ -2,7 +2,7 @@ window.MASTER_DOG_VIEWS = (() => {
   const data = window.MASTER_DOG_DATA;
   const store = window.MASTER_DOG_STORE;
   const path = (file) => `${document.body.dataset.base || ''}${file}`;
-  const money = (value) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
+  const money = (value) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(value);
   const ratingLabel = (id) => {
     const reviews = store.read('reviews', {})[id] || [];
     if (!reviews.length) return '☆ Aucun avis';
