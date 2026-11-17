@@ -124,6 +124,25 @@ body.app-body { min-height: 100vh; padding-bottom: 82px; background: radial-grad
 .app-body :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .mobile-tabbar a { text-decoration: none; }
 .form-panel { width: min(560px, 100%); margin: 40px auto; padding: 28px; border: 1px solid rgb(255 255 255 / 8%); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow-card); }
+.auth-panel { width: min(760px, 100%); }
+.auth-panel > .muted-copy { margin: -12px 0 18px; font-size: 11px; }
+.account-type { min-width: 0; margin: 0 0 20px; padding: 0; border: 0; }
+.account-type legend { margin-bottom: 11px; color: var(--white); font-size: 12px; font-weight: 600; }
+.account-type__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.account-type__choice { display: grid; min-height: 122px; align-content: start; gap: 7px; padding: 13px 10px; border: 1px solid rgb(255 255 255 / 12%); border-radius: 15px; background: #171717; color: var(--white); text-align: left; cursor: pointer; transition: border-color var(--transition), transform var(--transition), background var(--transition); }
+.account-type__choice:hover { transform: translateY(-2px); }
+.account-type__choice[aria-pressed="true"] { border-color: var(--role-accent); background: color-mix(in srgb, var(--role-accent) 10%, #171717); }
+.account-type__choice > span { color: var(--role-accent); font-size: 20px; }
+.account-type__choice strong { font-size: 11px; }
+.account-type__choice small { color: var(--muted); font-size: 9px; line-height: 1.4; }
+.account-type__choice--client { --role-accent: var(--gold); }
+.account-type__choice--trainer { --role-accent: #65bd75; }
+.account-type__choice--veterinarian { --role-accent: #60b9de; }
+.account-type__choice--shop { --role-accent: #ef9a56; }
+.password-field { position: relative; }
+.password-field input { padding-right: 88px; }
+.password-toggle { position: absolute; right: 12px; bottom: 12px; border: 0; background: transparent; color: var(--gold); font: inherit; font-size: 10px; cursor: pointer; }
+[data-role-fields][hidden] { display: none; }
 .form-panel h1 { margin: 4px 0 20px; font-size: 25px; }
 .form-panel > .notice { margin-bottom: 20px; }
 .form-links { margin-top: 16px; color: var(--muted); font-size: 10px; text-align: center; }
@@ -175,13 +194,15 @@ body.app-body { min-height: 100vh; padding-bottom: 82px; background: radial-grad
 .cart-thumb { width: 56px; height: 56px; border-radius: 13px; object-fit: cover; }
 .professional-dashboard--trainer { --role-accent: var(--green); }
 .professional-dashboard--veterinarian { --role-accent: var(--blue); }
-.professional-dashboard--shop { --role-accent: var(--red); }
+.professional-dashboard--shop { --role-accent: #ef9a56; }
 .professional-dashboard .dashboard-tile > span { color: var(--role-accent, var(--gold)); }
 .theme-light { --white: #151515; --muted: #555; --panel: #f0f0f0; --card: #fff; --ink: #fff; color: #151515 !important; background: #f5f5f5 !important; }
 .theme-light .app-header, .theme-light .mobile-tabbar { background: rgb(255 255 255 / 92%); }
 .theme-light .app-header, .theme-light .app-logo__word, .theme-light .app-top-nav a { color: #151515; }
 .theme-light .search-input input, .theme-light .form-field input, .theme-light .form-field select, .theme-light .form-field textarea { color: #151515; }
 @media (max-width: 640px) {
+  .account-type__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .account-type__choice { min-height: 108px; }
   .app-top-actions > .button { display: none; }
   .settings-layout, .product-detail { grid-template-columns: 1fr; }
   .settings-panel--danger { grid-column: auto; }

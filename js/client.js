@@ -24,6 +24,107 @@ window.MASTER_DOG_CLIENT = (() => {
 		if (output) output.textContent = message;
 	}
 
+	function apiUrl(path) {
+		return `${document.body.dataset.base || ''}api/${path}`;
+	}
+
+	async function apiAuth(action, payload) {
+		const csrfResponse = await fetch(apiUrl('auth.php?action=csrf'), { credentials: 'same-origin' });
+		const csrfData = await csrfResponse.json();
+		if (!csrfResponse.ok || !csrfData.csrfToken) throw new Error(csrfData.error || 'Backend indisponible.');
+		const response = await fetch(apiUrl(`auth.php?action=${encodeURIComponent(action)}`), {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfData.csrfToken },
+			body: JSON.stringify(payload)
+		});
+		const data = await response.json();
+		if (!response.ok) throw new Error(data.error || 'Impossible de traiter la demande.');
+		return data;
+	}
+
+	async function apiCommunity(action, formData) {
+		const csrfResponse = await fetch(apiUrl('auth.php?action=csrf'), { credentials: 'same-origin' });
+		const csrfData = await csrfResponse.json();
+		if (!csrfResponse.ok || !csrfData.csrfToken) throw new Error(csrfData.error || 'Backend indisponible.');
+		const response = await fetch(apiUrl(`community.php?action=${encodeURIComponent(action)}`), {
+			method: 'POST', credentials: 'same-origin',
+			headers: { 'X-CSRF-Token': csrfData.csrfToken },
+			body: formData
+		});
+		const data = await response.json();
+		if (!response.ok) throw new Error(data.error || 'Impossible de traiter la demande.');
+		return data;
+	}
+
+	async function apiReset(action, payload) {
+		const csrfResponse = await fetch(apiUrl('auth.php?action=csrf'), { credentials: 'same-origin' });
+		const csrfData = await csrfResponse.json();
+		if (!csrfResponse.ok || !csrfData.csrfToken) throw new Error(csrfData.error || 'Backend indisponible.');
+		const response = await fetch(apiUrl(`auth.php?action=${encodeURIComponent(action)}`), {
+			method: 'POST', credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfData.csrfToken },
+			body: JSON.stringify(payload)
+		});
+		const data = await response.json();
+		if (!response.ok) throw new Error(data.error || 'Impossible de traiter la demande.');
+		return data;
+	}
+
+	async function syncServerSession() {
+		try {
+			const response = await fetch(apiUrl('auth.php?action=me'), { credentials: 'same-origin' });
+			if (!response.ok) return;
+			const data = await response.json();
+			if (data.user) store.setUser(data.user, false);
+			else store.signOut();
+		} catch {
+			// Le mode de démonstration existant reste disponible si l’API n’est pas configurée.
+		}
+	}
+
+	async function signOutFromServer() {
+		try { await apiAuth('logout', {}); } catch { /* La session locale est quand même supprimée. */ }
+		store.signOut();
+		location.href = `${document.body.dataset.base || ''}index.html`;
+	}
+
+	function bindAuthForm() {
+		const form = document.querySelector('[data-auth-form]');
+		if (!form) return;
+		const selectRole = (role) => {
+			form.querySelectorAll('[data-role-choice]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.roleChoice === role)));
+			form.querySelectorAll('[data-role-fields]').forEach((section) => {
+				const active = section.dataset.roleFields === role;
+				section.hidden = !active;
+				section.querySelectorAll('input, textarea, select').forEach((input) => {
+					input.disabled = !active;
+					input.required = active && ['businessName', 'businessAddress', 'specialty', 'specialties', 'serviceArea'].includes(input.name);
+				});
+			});
+		};
+		const initialRole = new URLSearchParams(location.search).get('role') === 'professional' ? 'trainer' : 'client';
+		selectRole(initialRole);
+		form.querySelectorAll('[data-role-choice]').forEach((button) => button.addEventListener('click', () => selectRole(button.dataset.roleChoice)));
+		const toggle = form.querySelector('.password-toggle');
+		toggle?.addEventListener('click', () => {
+			const password = form.elements.password;
+			const visible = password.type === 'password';
+			password.type = visible ? 'text' : 'password';
+			toggle.textContent = visible ? 'Masquer' : 'Afficher';
+			toggle.setAttribute('aria-label', `${visible ? 'Masquer' : 'Afficher'} le mot de passe`);
+			toggle.setAttribute('aria-pressed', String(visible));
+		});
+	}
+
+	async function hashPassword(password, salt) {
+		if (!window.crypto?.subtle) throw new Error('secure-context-required');
+		const saltBytes = salt ? Uint8Array.from(atob(salt), (character) => character.charCodeAt(0)) : window.crypto.getRandomValues(new Uint8Array(16));
+		const key = await window.crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+		const bits = await window.crypto.subtle.deriveBits({ name: 'PBKDF2', salt: saltBytes, iterations: 210000, hash: 'SHA-256' }, key, 256);
+		return { salt: btoa(String.fromCharCode(...saltBytes)), hash: btoa(String.fromCharCode(...new Uint8Array(bits))) };
+	}
+
 	function openExternalRequest(professional, message, form) {
 		const contacts = store.read('professionalContacts', {});
 		const contact = contacts[professional.id];
@@ -122,6 +223,7 @@ window.MASTER_DOG_CLIENT = (() => {
 	}
 
 	function bindSharedActions() {
+		bindAuthForm();
 		populateContactProfiles();
 		populateClientFields();
 		populateProfessionalSettings();
@@ -161,8 +263,7 @@ window.MASTER_DOG_CLIENT = (() => {
 			}
 
 			if (event.target.closest('[data-signout]')) {
-				store.signOut();
-				location.href = `${document.body.dataset.base || ''}index.html`;
+				signOutFromServer();
 			}
 			if (event.target.closest('[data-clear-demo]') && window.confirm('Effacer toutes les données de démonstration de ce navigateur ?')) {
 				store.clearDemo();
@@ -235,27 +336,23 @@ window.MASTER_DOG_CLIENT = (() => {
 			}
 		});
 
-		document.addEventListener('submit', (event) => {
+		document.addEventListener('submit', async (event) => {
 			const form = event.target;
 			if (form.matches('[data-auth-form]')) {
 				event.preventDefault();
 				const values = Object.fromEntries(new FormData(form));
 				const register = form.dataset.register === 'true';
-				const accounts = store.read('demoAccounts', []);
-				if (register) {
-					if (accounts.some((account) => account.email.toLowerCase() === values.email.toLowerCase())) return feedback(form, 'Un profil de démonstration existe déjà pour cette adresse.');
-					  const account = { name: values.name.trim(), email: values.email.trim(), password: values.password, role: values.role, city: values.city || '', dogName: values.dogName || '', dogBreed: values.dogBreed || '', dogAge: values.dogAge || '' };
-					accounts.push(account);
-					store.write('demoAccounts', accounts);
-					  store.setUser({ name: account.name, email: account.email, role: account.role, city: account.city, dogName: account.dogName, dogBreed: account.dogBreed, dogAge: account.dogAge });
-					location.href = 'mon-espace.html';
-				} else {
-					const account = accounts.find((item) => item.email.toLowerCase() === values.email.toLowerCase() && item.password === values.password);
-					if (!account) return feedback(form, 'Compte local introuvable. Créez d’abord un profil sur cet appareil.');
-					const sanction = store.read('sanctions', []).find((item) => item.active && item.subject.toLowerCase() === account.email.toLowerCase() && ['suspension', 'ban'].includes(item.level));
-					if (sanction) return feedback(form, `Connexion locale bloquée : ${sanction.level}. Motif : ${sanction.reason}. Un réexamen réel nécessite le serveur.`);
-					  store.setUser({ name: account.name, email: account.email, role: account.role, city: account.city, dogName: account.dogName, dogBreed: account.dogBreed, dogAge: account.dogAge });
-					location.href = 'mon-espace.html';
+				const role = form.querySelector('[data-role-choice][aria-pressed="true"]')?.dataset.roleChoice || 'client';
+				const profileFields = ['country', 'city', 'dogName', 'dogBreed', 'dogAge', 'birthDate', 'experience', 'specialties', 'qualifications', 'serviceArea', 'businessName', 'businessAddress', 'specialty', 'district', 'professionalDescription'];
+				const profile = Object.fromEntries(profileFields.filter((name) => values[name] !== undefined).map((name) => [name, values[name]]));
+				try {
+					const result = register
+						? await apiAuth('register', { ...values, role, profile })
+						: await apiAuth('login', values);
+					store.setUser(result.user, register || Boolean(form.elements.remember?.checked));
+					location.href = result.user.role === 'super_admin' ? 'super-admin.html' : 'mon-espace.html';
+				} catch (error) {
+					feedback(form, error.message || 'Service indisponible. Réessayez plus tard.');
 				}
 			}
 
@@ -289,10 +386,29 @@ window.MASTER_DOG_CLIENT = (() => {
 
 			if (form.matches('[data-report-form]')) {
 				event.preventDefault();
-				const values = Object.fromEntries(new FormData(form));
-				store.addReport({ target: values.target, type: values.type, reason: values.reason, description: values.description });
-				feedback(form, 'Signalement enregistré sur cet appareil uniquement. Il n’a pas été transmis à une équipe de modération.');
-				form.reset();
+				try {
+					const result = await apiCommunity('report', new FormData(form));
+					feedback(form, `Signalement transmis. Référence ${result.reference}.`);
+					form.reset();
+				} catch (error) { feedback(form, error.message); }
+			}
+
+			if (form.matches('[data-complaint-form]')) {
+				event.preventDefault();
+				try {
+					const result = await apiCommunity('complaint', new FormData(form));
+					feedback(form, `Réclamation transmise. Référence ${result.reference}.`);
+					form.reset();
+				} catch (error) { feedback(form, error.message); }
+			}
+
+			if (form.matches('[data-platform-review]')) {
+				event.preventDefault();
+				try {
+					await apiCommunity('review', new FormData(form));
+					feedback(form, 'Merci. Votre avis sur la plateforme a été envoyé à l’équipe.');
+					form.reset();
+				} catch (error) { feedback(form, error.message); }
 			}
 
 			if (form.matches('[data-request-form]')) {
@@ -331,7 +447,17 @@ window.MASTER_DOG_CLIENT = (() => {
 
 			if (form.matches('[data-reset-form]')) {
 				event.preventDefault();
-				feedback(form, 'La réinitialisation de mot de passe nécessite un serveur et un envoi d’e-mail; aucune modification n’a été faite.');
+				try {
+					if (form.dataset.resetToken) {
+						await apiReset('reset-password', { token: form.dataset.resetToken, password: form.elements.password.value, passwordConfirm: form.elements.passwordConfirm.value });
+						feedback(form, 'Mot de passe modifié. Vous pouvez vous connecter avec votre nouveau mot de passe.');
+						form.reset();
+					} else {
+						const result = await apiReset('forgot-password', { email: form.elements.email.value });
+						feedback(form, result.message || 'Si cette adresse est associée à un compte, un e-mail sera envoyé.');
+						form.reset();
+					}
+				} catch (error) { feedback(form, error.message); }
 			}
 		});
 
@@ -352,5 +478,5 @@ window.MASTER_DOG_CLIENT = (() => {
 		});
 	}
 
-	return { toast, bindSharedActions, openExternalRequest };
+	return { toast, bindSharedActions, openExternalRequest, syncServerSession };
 })();

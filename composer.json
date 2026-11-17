@@ -1,0 +1,13 @@
+{
+  "name": "master-of-dog/platform",
+  "description": "Backend PHP/MySQL de MASTER of DOG",
+  "type": "project",
+  "require": {
+    "php": ">=8.1",
+    "phpmailer/phpmailer": "^6.10"
+  },
+  "config": {
+    "allow-plugins": {},
+    "sort-packages": true
+  }
+}

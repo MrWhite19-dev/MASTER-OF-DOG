@@ -27,10 +27,34 @@ window.MASTER_DOG_STORE = (() => {
     demoNotice: 'Données de démonstration enregistrées uniquement dans ce navigateur. Ce stockage ne protège pas les comptes et ne synchronise rien entre utilisateurs.',
     read,
     write,
-    currentUser: () => read('user', null),
-    setUser: (user) => write('user', user),
+    currentUser: () => {
+      const persistentUser = read('user', null);
+      if (persistentUser) return persistentUser;
+      try {
+        const value = sessionStorage.getItem(prefix + 'user');
+        return value === null ? null : JSON.parse(value);
+      } catch {
+        return null;
+      }
+    },
+    setUser: (user, remember) => {
+      let persist = remember;
+      if (persist === undefined) {
+        try { persist = localStorage.getItem(prefix + 'user') !== null; } catch { persist = false; }
+      }
+      try {
+        (persist ? localStorage : sessionStorage).setItem(prefix + 'user', JSON.stringify(user));
+        (persist ? sessionStorage : localStorage).removeItem(prefix + 'user');
+        return true;
+      } catch {
+        return false;
+      }
+    },
     professionalProfile: (person) => ({ ...person, ...(read('professionalEdits', {})[person.id] || {}) }),
-    signOut: () => { try { localStorage.removeItem(prefix + 'user'); } catch { /* Stockage local indisponible. */ } },
+    signOut: () => {
+      try { localStorage.removeItem(prefix + 'user'); } catch { /* Stockage local indisponible. */ }
+      try { sessionStorage.removeItem(prefix + 'user'); } catch { /* Stockage de session indisponible. */ }
+    },
     favorites: () => read('favorites', []),
     toggleFavorite: (id, type = 'professional') => updateList('favorites', (items) => {
       const index = items.findIndex((item) => item.id === id && item.type === type);
